@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
+import profilePhoto from './assets/images/Frame 32.png';
 
 const skills = [
   { name: "Adobe Photoshop", level: 85 },
@@ -73,9 +74,140 @@ function Section({ children, className = "" }) {
   );
 }
 
+function SpiderWeb({ heroRef }) {
+  const canvasRef = useRef(null);
+  const mouseRef = useRef({ x: 0, y: 0 });
+  const nodesRef = useRef([]);
+  const animationRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const heroElement = heroRef.current;
+    
+    // Set canvas size to match hero section
+    const updateCanvasSize = () => {
+      if (heroElement) {
+        canvas.width = heroElement.offsetWidth;
+        canvas.height = heroElement.offsetHeight;
+      }
+    };
+    updateCanvasSize();
+
+    // Initialize nodes with random positions
+    if (nodesRef.current.length === 0) {
+      for (let i = 0; i < 50; i++) {
+        nodesRef.current.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+        });
+      }
+    }
+
+    const handleMouseMove = (e) => {
+      if (heroElement) {
+        const rect = heroElement.getBoundingClientRect();
+        mouseRef.current.x = e.clientX - rect.left;
+        mouseRef.current.y = e.clientY - rect.top;
+      }
+    };
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update and draw nodes
+      nodesRef.current.forEach((node) => {
+        node.x += node.vx;
+        node.y += node.vy;
+
+        // Bounce off walls
+        if (node.x < 0 || node.x > canvas.width) node.vx *= -1;
+        if (node.y < 0 || node.y > canvas.height) node.vy *= -1;
+
+        node.x = Math.max(0, Math.min(canvas.width, node.x));
+        node.y = Math.max(0, Math.min(canvas.height, node.y));
+      });
+
+      // Draw lines between nearby nodes
+      const connectionDistance = 150;
+      nodesRef.current.forEach((node, i) => {
+        nodesRef.current.forEach((other, j) => {
+          if (i < j) {
+            const dx = node.x - other.x;
+            const dy = node.y - other.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < connectionDistance) {
+              const opacity = 1 - distance / connectionDistance;
+              const isCloseToCursor = 
+                Math.abs(node.x - mouseRef.current.x) < 200 &&
+                Math.abs(node.y - mouseRef.current.y) < 200;
+
+              ctx.strokeStyle = isCloseToCursor 
+                ? `rgba(255, 111, 183, ${opacity * 0.6})`
+                : `rgba(26, 58, 107, ${opacity * 0.4})`;
+              ctx.lineWidth = 0.5;
+              ctx.shadowBlur = 8;
+              ctx.shadowColor = isCloseToCursor 
+                ? 'rgba(255, 111, 183, 0.5)'
+                : 'rgba(26, 58, 107, 0.3)';
+              ctx.beginPath();
+              ctx.moveTo(node.x, node.y);
+              ctx.lineTo(other.x, other.y);
+              ctx.stroke();
+            }
+          }
+        });
+      });
+
+      // Draw glowing lines from cursor to nearest nodes
+      const cursorConnectionDistance = 250;
+      nodesRef.current.forEach((node) => {
+        const dx = node.x - mouseRef.current.x;
+        const dy = node.y - mouseRef.current.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < cursorConnectionDistance) {
+          const opacity = 1 - distance / cursorConnectionDistance;
+          ctx.strokeStyle = `rgba(255, 111, 183, ${opacity * 0.7})`;
+          ctx.lineWidth = 1;
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = 'rgba(255, 111, 183, 0.7)';
+          ctx.beginPath();
+          ctx.moveTo(mouseRef.current.x, mouseRef.current.y);
+          ctx.lineTo(node.x, node.y);
+          ctx.stroke();
+        }
+      });
+
+      ctx.shadowBlur = 0;
+      animationRef.current = requestAnimationFrame(draw);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    const resizeObserver = new ResizeObserver(updateCanvasSize);
+    if (heroElement) resizeObserver.observe(heroElement);
+
+    draw();
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      resizeObserver.disconnect();
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [heroRef]);
+
+  return <canvas ref={canvasRef} className="spider-web-canvas" />;
+}
+
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const heroRef = useRef(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -109,7 +241,8 @@ export default function App() {
       </nav>
 
       {/* Hero */}
-      <section id="home" className="hero">
+      <section id="home" className="hero" ref={heroRef}>
+        <SpiderWeb heroRef={heroRef} />
         <div className="hero-content">
           <div className="hero-tag animate-in delay-1">✦ Creative Designer</div>
           <h1 className="hero-name animate-in delay-2">
@@ -126,7 +259,7 @@ export default function App() {
         <div className="hero-avatar animate-in delay-2">
           <div className="avatar-ring">
             <div className="avatar-placeholder">
-              <span>JS</span>
+              <img src={profilePhoto} alt="Jyotshana Shahi" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
             </div>
           </div>
           <div className="avatar-badge badge1">🎨 Designer</div>
